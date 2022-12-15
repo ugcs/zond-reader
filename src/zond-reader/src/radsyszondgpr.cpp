@@ -52,11 +52,11 @@ RadSysZondGpr::RadSysZondGpr(
 
 {
 	/*
-	*  View Skyhub user manual for detailed description on every parameter.
-	*  There are two channels on device, each of them configured independantly.
-	*  Every channel will be initiated by the batch command, formed by ChannelSetup class.
-	*  Here we just fill paramter values from configuration into two ChannelSetup instances.
-	*/
+	 *  View Skyhub user manual for detailed description on every parameter.
+	 *  There are two channels on device, each of them configured independantly.
+	 *  Every channel will be initiated by the batch command, formed by ChannelSetup class.
+	 *  Here we just fill paramter values from configuration into two ChannelSetup instances.
+	 */
 	m_hostName = sensorHostName;
 	m_port = sensorPort;
 
@@ -114,16 +114,16 @@ void RadSysZondGpr::init(const std::string &model)
 }
 
 RadSysZondGpr::RadSysZondGpr(const ParamsCLI& config,
-							asio::io_context& context) :
-		RadSysZondGpr(
-				config.getHostName(), config.getPort(),
-				config.getSampleCount(),
-				config.getHighPassFilters(),
-				config.getSoundingMode(),
-				config.getChannelMode(),
-				config.getPulseDelays(),
-				config.getTimeRanges(),
-				context)
+		asio::io_context& context) :
+				RadSysZondGpr(
+						config.getHostName(), config.getPort(),
+						config.getSampleCount(),
+						config.getHighPassFilters(),
+						config.getSoundingMode(),
+						config.getChannelMode(),
+						config.getPulseDelays(),
+						config.getTimeRanges(),
+						context)
 {
 }
 
@@ -165,7 +165,7 @@ RadSysZondGpr::onConnected(const asio::error_code& error)
 		m_socket = nullptr;
 		//Resubmit next connection try:
 		asio::post(m_context,
-			std::bind(&RadSysZondGpr::tryToConnect, this, m_hostName, m_port));
+				std::bind(&RadSysZondGpr::tryToConnect, this, m_hostName, m_port));
 	}
 	else
 	{
@@ -187,7 +187,7 @@ RadSysZondGpr::onConnected(const asio::error_code& error)
 
 void
 RadSysZondGpr::onCommandSend(const asio::error_code& error,
-							std::size_t bytes_transferred)
+		std::size_t bytes_transferred)
 {
 	if (error)
 		std::cerr << "Command sending error: " << error.message() << std::endl;
@@ -195,7 +195,7 @@ RadSysZondGpr::onCommandSend(const asio::error_code& error,
 
 void
 RadSysZondGpr::onDataSend(const asio::error_code& error,
-						std::size_t bytes_transferred)
+		std::size_t bytes_transferred)
 {
 	if (error)
 		std::cerr << "Data sending error: " << error.message() << std::endl;
@@ -290,8 +290,8 @@ void RadSysZondGpr::parseTrace(const byte_array_t &data)
 		//In model state we search for Marker and then for model name:
 		for (int i = 0; i < data.size(); ++i) {
 			data.at(i) == C::Marker[markerRawIndex] && markerRawIndex < C::MarkerLength
-				? ++markerRawIndex
-				: markerRawIndex = 0;
+					? ++markerRawIndex
+							: markerRawIndex = 0;
 			if (markerRawIndex >= C::MarkerLength && model.empty()) {
 				//TODO: rework for std::string
 				model.resize(data.size() - markerRawIndex);
@@ -316,7 +316,7 @@ void RadSysZondGpr::parseTrace(const byte_array_t &data)
 	if (m_parsingState == PreparationState) {
 		//In preparation state we prepare data logging for trace data:
 		traceByteCount = bytesInSample * (m_liteMode ? m_channels[0].sampleCount + m_channels[0].sampleCount / C::ServiceSampleDivider
-														: m_channels[0].sampleCount);
+				: m_channels[0].sampleCount);
 		trace.clear();
 		trace.resize(traceByteCount);
 		if (m_liteMode) {
@@ -324,8 +324,8 @@ void RadSysZondGpr::parseTrace(const byte_array_t &data)
 		} else {
 			for (int i = 0; i < data.size(); ++i) {
 				data.at(i) == C::Marker[markerRawIndex] && markerRawIndex < C::MarkerLength
-					? ++markerRawIndex
-					: markerRawIndex = 0;
+						? ++markerRawIndex
+								: markerRawIndex = 0;
 				if (markerRawIndex >= C::MarkerLength) {
 					// check dummy byte
 					markerRawIndex++;
@@ -375,9 +375,9 @@ void RadSysZondGpr::parseTrace(const byte_array_t &data)
 			markerDataIndex = data.size() - markerRawIndex;
 		} else if (markerRawIndex > data.size()) {
 			std::cerr << "Wrong case: Data length: " << data.size()
-					<< ", markerDataIndex: " << markerDataIndex
-					<< ", markerRawIndex: " << markerRawIndex
-					<< std::endl;
+							<< ", markerDataIndex: " << markerDataIndex
+							<< ", markerRawIndex: " << markerRawIndex
+							<< std::endl;
 
 			parseFailureFlag = true;
 			markerDataIndex = 0;

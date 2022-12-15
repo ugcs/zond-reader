@@ -10,8 +10,8 @@
 
 
 SensorReader::SensorReader(asio::io_context& io,
-							GprWriter& writer,
-							const ParamsCLI& params)
+		GprWriter& writer,
+		const ParamsCLI& params)
 : m_writer(writer), RadSysZondGpr(params, io)
 {
 }

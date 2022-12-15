@@ -5,15 +5,15 @@
 
 class ParamsCLI {
 public:
-     ParamsCLI(int argc, char **argv);
+	ParamsCLI(int argc, char **argv);
 
-    //Where to write result files
-    std::string getOutputDir() const;
-    //Number of traces included per JPEG
-    unsigned getImageWidth() const;
+	//Where to write result files
+	std::string getOutputDir() const;
+	//Number of traces included per JPEG
+	unsigned getImageWidth() const;
 
-    std::string getHostName() const;
-    int getPort() const;
+	std::string getHostName() const;
+	int getPort() const;
 
 	uint16_t getSampleCount() const;
 	std::vector<std::string> getHighPassFilters() const;
@@ -23,16 +23,16 @@ public:
 	std::vector<uint16_t> getTimeRanges() const;
 
 private:
-    std::string output_dir_name;
+	std::string output_dir_name;
 
-    const unsigned DEFAULT_WIDTH = 500;
-    const char* ENV_INPUT_DIR = "ZOND_INPUT_DIR";
-    const char* ENV_IMG_WIDTH = "ZOND_IMAGE_WIDTH";
+	const unsigned DEFAULT_WIDTH = 500;
+	const char* ENV_INPUT_DIR = "ZOND_INPUT_DIR";
+	const char* ENV_IMG_WIDTH = "ZOND_IMAGE_WIDTH";
 
-    unsigned img_width = DEFAULT_WIDTH;
+	unsigned img_width = DEFAULT_WIDTH;
 
-    std::string host_name;
-    int port;
+	std::string host_name;
+	int port;
 
 	uint16_t sample_count;
 	std::vector<std::string> high_pass_filters;
