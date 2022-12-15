@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
 			workers.emplace_back(context);
 
 		//Make an instance of JPEG writer
-		GprWriter writer(context);
+		GprWriter writer(context, params);
 		//Make an instance of sensor reader.
 		//It takes a reference on the writer to tell it when to write
 		SensorReader sensor(context, writer, params);

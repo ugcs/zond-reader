@@ -1,4 +1,5 @@
 #include <channelsetup.h>
+#include <iostream>
 
 namespace C {
 const int PulseDelayBitDepth = 10;
@@ -69,20 +70,20 @@ byte_array_t ChannelSetup::toByteArray()
 
 	result.push_back ((str_toUpper(channelMode) == CircleMode || str_toUpper(channelMode) == Tx2Rx1Mode) ? '1' : '0');
 
-	result.insert(result.begin(), {'0', '0', '0'});
+	result.insert(result.end(), {'0', '0', '0'}); //reserved
 
 	appendBytesOrDefault(result, m_highPassFilterTranslator, highPassFilter, {'0', '0'});
 
 	appendBytesOrDefault(result, m_advancedTimeRangeTranslator, timeRange, {'0', '0'});
 
-	result.insert(result.begin(), {'0'}); //Reserved
+	result.insert(result.end(), {'0'}); //Reserved
 
 	appendBytesOrDefault(result, m_soundingModeTranslator, soundingMode, {'0', '1', '1', '0'});
 
 	appendBytesOrDefault(result, m_channelModeTranslator, channelMode, {'0', '0'});
 
 	auto pulse_delay = bitsToChars(pulseDelay, C::PulseDelayBitDepth);
-	result.insert(result.begin(), pulse_delay.begin(), pulse_delay.end());
+	result.insert(result.end(), pulse_delay.begin(), pulse_delay.end());
 	return result;
 }
 

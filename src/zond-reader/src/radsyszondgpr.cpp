@@ -78,7 +78,24 @@ RadSysZondGpr::RadSysZondGpr(
 		channel.soundingMode = soundingMode;
 		channel.channelMode = channelMode;
 	}
+}
 
+RadSysZondGpr::RadSysZondGpr(const ParamsCLI& config,
+		asio::io_context& context) :
+				RadSysZondGpr(
+						config.getHostName(), config.getPort(),
+						config.getSampleCount(),
+						config.getHighPassFilters(),
+						config.getSoundingMode(),
+						config.getChannelMode(),
+						config.getPulseDelays(),
+						config.getTimeRanges(),
+						context)
+{
+}
+
+RadSysZondGpr::~RadSysZondGpr()
+{
 }
 
 //Device initialization routine:
@@ -111,20 +128,6 @@ void RadSysZondGpr::init(const std::string &model)
 		//Use combinned cables for both channels:
 		channel.cable = ChannelSetup::CombinedCable;
 	}
-}
-
-RadSysZondGpr::RadSysZondGpr(const ParamsCLI& config,
-		asio::io_context& context) :
-				RadSysZondGpr(
-						config.getHostName(), config.getPort(),
-						config.getSampleCount(),
-						config.getHighPassFilters(),
-						config.getSoundingMode(),
-						config.getChannelMode(),
-						config.getPulseDelays(),
-						config.getTimeRanges(),
-						context)
-{
 }
 
 //Then driver initialized, send pings to detect if device answers
@@ -214,7 +217,6 @@ void RadSysZondGpr::onReadData(
 		std::size_t bytes_transferred)
 {
 	if(!error) {
-		std::cout << ".";
 		//Processing of received data:
 		parseTrace(m_received_data);
 		//Schedule next read:

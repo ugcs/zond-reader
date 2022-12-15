@@ -24,6 +24,8 @@ public:
 	RadSysZondGpr(const ParamsCLI& config,
 			asio::io_context& context);
 
+	virtual ~RadSysZondGpr();
+
 	void start();
 	void stop();
 

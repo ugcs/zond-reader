@@ -37,4 +37,3 @@ find_package(OpenCV REQUIRED)
 include_directories( ${OpenCV_INCLUDE_DIRS} )
 target_link_libraries(${CMAKE_PROJECT_NAME} ${OpenCV_LIBS} pthread)
 
-#target_link_libraries(${CMAKE_PROJECT_NAME} stdc++fs)

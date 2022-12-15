@@ -22,5 +22,5 @@ SensorReader::~SensorReader()
 
 void SensorReader::processGprData(const byte_array_t& data)
 {
-	std::cout << "Process " << data.size() << " of data" << std::endl;
+	m_writer.write(data);
 }

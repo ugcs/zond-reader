@@ -23,6 +23,9 @@ ParamsCLI(int argc, char **argv)
 
 	app.set_config("--config", "reader.conf", "Load parameters from config file", false);
 
+	app.add_option("-o, --output", output_dir_name, "Directory to save result images")
+			->default_val(".");
+
 	app.add_option("-w, --width", img_width, "Number of traces per output image")
 			->envname(ENV_IMG_WIDTH)
 			->default_val(DEFAULT_WIDTH);
@@ -34,7 +37,7 @@ ParamsCLI(int argc, char **argv)
 			->default_val(23);
 
 	app.add_option("-c, --sample-count", sample_count, "Sample count")
-			->default_val(128);
+			->default_val(512);
 
 	high_pass_filters = {"OFF", "OFF"};
 	app.add_option("-f, --high-pass-filters", high_pass_filters, "High-pass filters")
