@@ -36,11 +36,11 @@ void GprWriter::write(const byte_array_t& data)
 	if(m_current_width < m_target_width)
 	{
 		//Read trace bytes as 16-bit values:
-		auto traceData = reinterpret_cast<const uint16_t*>(data.data());
+		auto traceData = reinterpret_cast<const int16_t*>(data.data());
 		//Copy from original buffer in syncro mode
 		//just to be sure it will not be overwrited:
 		for(int sample_idx = 0; sample_idx < m_height; sample_idx++) {
-			uint16_t sample = traceData[sample_idx];
+			int16_t sample = traceData[sample_idx];
 			m_result.at<float>(sample_idx, m_current_width) = sample;
 		}
 		std::cout << "Trace " << trace_num++ << " goes to file " << m_file_num << std::endl;
@@ -51,8 +51,7 @@ void GprWriter::write(const byte_array_t& data)
 
 void GprWriter::startJpegWrite()
 {
-	Mat source = m_result.clone();
-	asio::post(m_context, [data = std::move(source),
+	asio::post(m_context, [data = std::move(m_result),
 						   file_idx = m_file_num,
 						   output_dir = m_output_dir]{
 		Mat out;

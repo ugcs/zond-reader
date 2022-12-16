@@ -6,9 +6,9 @@ Utility to read Zond Aero 1000 data and write it to files
 ### Requirements
 
 To build and run the zond reader you'll need OS Ubuntu 20.04 or 22.04 for x86-64 architecture.
-These dependancies are expected to be at building platform: git, make, cmake, gcc, g++, pkg-config, libopencv-dev
+These dependancies are expected to be at building platform: git, make, cmake, gcc, g++, pkg-config, libopencv-dev, libasio-dev
 
-You may install them with command: sudo apt install git make cmake gcc g++ pkg-config libopencv-dev
+You may install them with command: sudo apt install git make cmake gcc g++ pkg-config libopencv-dev libasio-dev
 
 ### Binary compilation
 
