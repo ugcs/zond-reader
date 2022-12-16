@@ -38,12 +38,12 @@ private:
 	void processFinished(int exitCode);
 	void onCommandSend(const asio::error_code& error,
 			std::size_t bytes_transferred);
-	void onDataSend(const asio::error_code& error,
+	void onSetupSend(const asio::error_code& error,
 			std::size_t bytes_transferred);
 
 private:
 	bool isDualChannel();
-	void parseTrace(const byte_array_t &data);
+	void parseTrace(const byte_array_t &data, std::size_t length);
 	void openConnection();
 	void sendModelRequest();
 	void sendStart();
@@ -68,6 +68,7 @@ private:
 	enum ParsingState {
 		InitialState,
 		ModelState,
+		ConfigureState,
 		PreparationState,
 		TraceState,
 	};

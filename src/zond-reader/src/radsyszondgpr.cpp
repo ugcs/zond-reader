@@ -197,11 +197,13 @@ RadSysZondGpr::onCommandSend(const asio::error_code& error,
 }
 
 void
-RadSysZondGpr::onDataSend(const asio::error_code& error,
+RadSysZondGpr::onSetupSend(const asio::error_code& error,
 		std::size_t bytes_transferred)
 {
 	if (error)
 		std::cerr << "Data sending error: " << error.message() << std::endl;
+	else
+		m_parsingState = PreparationState; //Resume parsing after configuration
 }
 
 //Close TCP connection and stop processing
@@ -218,7 +220,7 @@ void RadSysZondGpr::onReadData(
 {
 	if(!error) {
 		//Processing of received data:
-		parseTrace(m_received_data);
+		parseTrace(m_received_data, bytes_transferred);
 		//Schedule next read:
 		m_socket->async_receive(asio::buffer(m_received_data, m_received_data.size()),
 				std::bind(&RadSysZondGpr::onReadData, this, std::placeholders::_1, std::placeholders::_2));
@@ -259,21 +261,21 @@ void RadSysZondGpr::sendStart()
 
 	std::string str_cmd(cmd.begin(), cmd.end());
 
-	std::cout << "Command:" << str_cmd << std::endl;
+	std::cout << "Setup command:" << str_cmd << std::endl;
 
 	m_socket->async_send(asio::const_buffer(cmd.data(), cmd.size()),
-			std::bind(&RadSysZondGpr::onDataSend, this, std::placeholders::_1, std::placeholders::_2));
+			std::bind(&RadSysZondGpr::onSetupSend, this, std::placeholders::_1, std::placeholders::_2));
 }
 
 //This is the FSM routine to parse incoming binary stream chunk-by-chunk:
-void RadSysZondGpr::parseTrace(const byte_array_t &data)
+void RadSysZondGpr::parseTrace(const byte_array_t &data, std::size_t length)
 {
 	static bool parseFailureFlag = false;
 	static int traceByteCount = 0;
 
 	// If data length equal to traceByteCount, it means that it is a full trace
-	if (parseFailureFlag && data.size() != traceByteCount) {
-		std::cerr << "Expected data with length " << traceByteCount << ". Current data length " << data.size() << std::endl;
+	if (parseFailureFlag && length != traceByteCount) {
+		std::cerr << "Expected data with length " << traceByteCount << ". Current data length " << length << std::endl;
 		m_badTraceCount++;
 		return;
 	}
@@ -288,15 +290,19 @@ void RadSysZondGpr::parseTrace(const byte_array_t &data)
 	if (m_parsingState == InitialState)
 		m_parsingState = ModelState;
 
+	//Do not parse anything while configuration awaiting
+	if (m_parsingState == ConfigureState)
+		return;
+
 	if (m_parsingState == ModelState) {
 		//In model state we search for Marker and then for model name:
-		for (int i = 0; i < data.size(); ++i) {
+		for (int i = 0; i < length; ++i) {
 			data.at(i) == C::Marker[markerRawIndex] && markerRawIndex < C::MarkerLength
 					? ++markerRawIndex
 							: markerRawIndex = 0;
 			if (markerRawIndex >= C::MarkerLength && model.empty()) {
 				//TODO: rework for std::string
-				model.resize(data.size() - markerRawIndex);
+				model.resize(length - markerRawIndex);
 				memcpy(model.data(), data.data() + markerRawIndex, model.size());
 				auto str_model = std::string(model.begin(), model.end());
 				std::cout << "Model:" << str_model << std::endl;
@@ -304,8 +310,8 @@ void RadSysZondGpr::parseTrace(const byte_array_t &data)
 				//Then model was found, launch device initialization routine:
 				init(str_model);
 
-				//Switch FSM into Preparation state
-				m_parsingState = PreparationState;
+				//Switch FSM into Configure state to suspend parsing until setup was sent
+				m_parsingState = ConfigureState;
 				markerRawIndex = 0;
 
 				//Then request data transmission start:
@@ -342,11 +348,11 @@ void RadSysZondGpr::parseTrace(const byte_array_t &data)
 	if (m_parsingState == TraceState) {
 		// handle tail of last package
 		if (markerDataIndex != 0) {
-			if (data.size() >= traceByteCount - markerDataIndex) {
+			if (length >= traceByteCount - markerDataIndex) {
 				memcpy(trace.data() + markerDataIndex,
 						data.data() + markerRawIndex,
 						traceByteCount - markerDataIndex);
-				//logGprData(trace);
+
 				processGprData(trace);
 				markerRawIndex += traceByteCount - markerDataIndex;
 				markerDataIndex = 0;
@@ -354,13 +360,13 @@ void RadSysZondGpr::parseTrace(const byte_array_t &data)
 				// trace is not full
 				memcpy(trace.data() + markerDataIndex,
 						data.data() + markerRawIndex,
-						data.size() - markerRawIndex);
-				markerDataIndex += data.size() - markerRawIndex;
-				markerRawIndex = data.size();
+						length - markerRawIndex);
+				markerDataIndex += length - markerRawIndex;
+				markerRawIndex = length;
 			}
 		}
 		// handle complete traces
-		int traceCount = (data.size() - markerRawIndex) / traceByteCount;
+		int traceCount = (length - markerRawIndex) / traceByteCount;
 		for (int k = 0; k < traceCount; ++k) {
 			memcpy(trace.data(),
 					data.data() + markerRawIndex,
@@ -370,13 +376,13 @@ void RadSysZondGpr::parseTrace(const byte_array_t &data)
 			markerRawIndex += traceByteCount;
 		}
 		// handle head of next package
-		if (markerRawIndex < data.size()) {
+		if (markerRawIndex < length) {
 			memcpy(trace.data(),
 					data.data() + markerRawIndex,
-					data.size() - markerRawIndex);
-			markerDataIndex = data.size() - markerRawIndex;
-		} else if (markerRawIndex > data.size()) {
-			std::cerr << "Wrong case: Data length: " << data.size()
+					length - markerRawIndex);
+			markerDataIndex = length - markerRawIndex;
+		} else if (markerRawIndex > length) {
+			std::cerr << "Wrong case: Data length: " << length
 							<< ", markerDataIndex: " << markerDataIndex
 							<< ", markerRawIndex: " << markerRawIndex
 							<< std::endl;
