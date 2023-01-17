@@ -12,14 +12,16 @@
 #include <config.h>
 #include <writer.h>
 #include <radsyszondgpr.h>
+#include <datasource.h>
 
 
-class SensorReader : public RadSysZondGpr
+class SensorReader : public DataSource, RadSysZondGpr
 {
 public:
-	SensorReader(asio::io_context& io, GprWriter& writer, const ParamsCLI& params);
+	SensorReader(asio::io_context& io, const ParamsCLI& params);
 	virtual ~SensorReader();
 	virtual void processGprData(const byte_array_t& data) override;
-private:
-	GprWriter& m_writer;
+
+	virtual void start() override;
+	virtual void stop() override;
 };

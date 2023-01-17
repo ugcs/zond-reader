@@ -22,6 +22,8 @@ public:
 	std::vector<uint16_t> getPulseDelays() const;
 	std::vector<uint16_t> getTimeRanges() const;
 
+	bool isDebugMode() const;
+
 private:
 	std::string output_dir_name;
 
@@ -40,4 +42,6 @@ private:
 	std::string channel_mode;
 	std::vector<uint16_t> pulse_delays;
 	std::vector<uint16_t> time_ranges;
+
+	bool debug_mode;
 };

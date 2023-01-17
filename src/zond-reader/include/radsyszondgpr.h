@@ -26,6 +26,7 @@ public:
 
 	virtual ~RadSysZondGpr();
 
+protected:
 	void start();
 	void stop();
 
@@ -41,7 +42,6 @@ private:
 	void onSetupSend(const asio::error_code& error,
 			std::size_t bytes_transferred);
 
-private:
 	bool isDualChannel();
 	void parseTrace(const byte_array_t &data, std::size_t length);
 	void openConnection();
@@ -55,7 +55,6 @@ private:
 
 	virtual void processGprData(const byte_array_t& data) = 0;
 
-private:
 	asio::io_context& m_context;
 	std::unique_ptr<asio::ip::tcp::socket> m_socket;
 	std::string m_hostName;

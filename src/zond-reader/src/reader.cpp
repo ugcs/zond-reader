@@ -10,9 +10,8 @@
 
 
 SensorReader::SensorReader(asio::io_context& io,
-		GprWriter& writer,
 		const ParamsCLI& params)
-: m_writer(writer), RadSysZondGpr(params, io)
+: RadSysZondGpr(params, io), DataSource(io, params)
 {
 }
 
@@ -23,4 +22,14 @@ SensorReader::~SensorReader()
 void SensorReader::processGprData(const byte_array_t& data)
 {
 	m_writer.write(data);
+}
+
+void SensorReader::start()
+{
+	RadSysZondGpr::start();
+}
+
+void SensorReader::stop()
+{
+	RadSysZondGpr::stop();
 }
