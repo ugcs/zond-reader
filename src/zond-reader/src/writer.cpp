@@ -13,10 +13,11 @@ using namespace cv;
 GprWriter::GprWriter(asio::io_context& io, const ParamsCLI& params) : m_context(io)
 {
 	m_file_num = 0;
-	m_current_width = 0;
+
 	m_height = params.getSampleCount();
 	m_target_width = params.getImageWidth();
 	m_output_dir = params.getOutputDir();
+	m_overlap = params.getImagesOverlap();
 }
 
 void GprWriter::write(const byte_array_t& data)
@@ -29,39 +30,50 @@ void GprWriter::write(const byte_array_t& data)
 	auto traceData = reinterpret_cast<const int16_t*>(data.data());
 	while(readout < data.size()) {
 
-	if(m_current_width == m_target_width) {
-		startJpegWrite();
-		m_current_width = 0; //reset counter for the new image
-		m_file_num++; //next output file number
-	}
+		//First, check if any images are filled and ready for storage:
+		for(auto p = m_results.begin(); p != m_results.end(); p++) {
+			auto & current_width = p->first;
+			auto & result = p->second;
+			if(current_width == m_target_width) {
+				startJpegWrite(result);
+				p = m_results.erase(p); //Remove written image from collection
+				m_file_num++; //next output file number
+			}
+		}
 
-	if((m_current_width == 0)&&(m_result.empty())) {//for the first trace in the new image
-		m_result = Mat(m_height, m_target_width, CV_32FC1);
-	}
+		//If no working images are left, add a new one:
+		if(m_results.empty())
+			m_results.push_back(std::make_pair(0, Mat(m_height, m_target_width, CV_32FC1)));
 
-	if(m_current_width < m_target_width)
-	{
-		//Copy from original buffer in syncro mode
+		//Now check if the last image is in range of overlaping with next sibling:
+		auto last_width = m_results.back().first;
+		if(m_target_width - last_width < m_overlap) //add next image if in overlap range:
+			m_results.push_back(std::make_pair(0, Mat(m_height, m_target_width, CV_32FC1)));
+
+		//Copy from original buffer in sync mode
 		//just to be sure it will not be overwrited:
 		for(; sample_idx < m_height && readout < data.size(); sample_idx++) { //start from previous sample index
 			int16_t sample = *traceData;
 			traceData++; //move to next value
-			m_result.at<float>(sample_idx, m_current_width) = sample;
+			for(auto & p : m_results) //add sample into all images are in work:
+				p.second.at<float>(sample_idx, p.first) = sample;
+
 			readout += sizeof(int16_t);
 		}
+
 		if(sample_idx == m_height) {//full trace was read out
 			sample_idx = 0;
 			std::cout << "Trace " << trace_num++ << " goes to file " << m_file_num << std::endl;
-			//Ready for the next portion:
-			m_current_width++;
+			//Update width counters of all working images:
+			for(auto & p : m_results)
+				p.first++;
 		}
-	}
 	}
 }
 
-void GprWriter::startJpegWrite()
+void GprWriter::startJpegWrite(const cv::Mat& result)
 {
-	asio::post(m_context, [data = std::move(m_result),
+	asio::post(m_context, [data = result,
 						   file_idx = m_file_num,
 						   output_dir = m_output_dir]{
 		Mat out;

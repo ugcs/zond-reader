@@ -12,6 +12,7 @@
 #include <util.h>
 #include <config.h>
 #include <opencv2/opencv.hpp>
+#include <list>
 
 
 class GprWriter
@@ -22,13 +23,14 @@ public:
 private:
 	asio::io_context& m_context;
 	int m_target_width;
-	int m_current_width;
+	unsigned m_overlap;
+
 	int m_height;
 	std::string m_output_dir;
 	int m_file_num;
-	//Internal image presentation:
-	cv::Mat m_result;
+	//List of overlapping images in work:
+	std::list<std::pair<int, cv::Mat>> m_results;
 
-	void startJpegWrite();
+	void startJpegWrite(const cv::Mat& result);
 	static void convertTo8Bit(const cv::Mat& src, cv::Mat& out);
 };
