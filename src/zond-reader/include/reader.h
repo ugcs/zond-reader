@@ -12,10 +12,10 @@
 #include <config.h>
 #include <writer.h>
 #include <radsyszondgpr.h>
-#include <datasource.h>
+#include <dataproc.h>
 
 
-class SensorReader : public DataSource, RadSysZondGpr
+class SensorReader : public DataProc, RadSysZondGpr
 {
 public:
 	SensorReader(asio::io_context& io, const ParamsCLI& params);

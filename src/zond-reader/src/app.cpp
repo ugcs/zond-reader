@@ -6,8 +6,8 @@
 #include <writer.h>
 #include <worker.h>
 #include <radsyszondgpr.h>
-#include <datasource.h>
 #include <debug.h>
+#include <dataproc.h>
 
 
 //Main entry point for application
@@ -26,7 +26,7 @@ int main(int argc, char **argv) {
 			workers.emplace_back(context);
 
 		//Source of data: real device or mockup for debugging:
-		std::unique_ptr<DataSource> sensor;
+		std::unique_ptr<DataProc> sensor;
 
 		if(params.isDebugMode()) //Make instance of mockup
 			sensor = std::make_unique<DebugDataSource>(context, params);

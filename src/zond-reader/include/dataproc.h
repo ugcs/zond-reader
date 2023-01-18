@@ -4,12 +4,12 @@
 #include <asio.hpp>
 #include <config.h>
 
-class DataSource
+class DataProc
 {
 public:
-	DataSource(asio::io_context& io,
+	DataProc(asio::io_context& io,
 			const ParamsCLI& params);
-	virtual ~DataSource();
+	virtual ~DataProc();
 
 	virtual void start() = 0;
 	virtual void stop() = 0;

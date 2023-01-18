@@ -6,14 +6,14 @@
  */
 
 
-#include <datasource.h>
+#include <dataproc.h>
 
-DataSource::DataSource(asio::io_context& io,
+DataProc::DataProc(asio::io_context& io,
 			const ParamsCLI& params):
 			m_writer(io, params)
 {}
 
 
-DataSource::~DataSource()
+DataProc::~DataProc()
 {}
 

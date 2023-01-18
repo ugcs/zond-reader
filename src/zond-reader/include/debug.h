@@ -1,8 +1,8 @@
 #pragma once
 
-#include <datasource.h>
+#include <dataproc.h>
 
-class DebugDataSource : public DataSource
+class DebugDataSource : public DataProc
 {
 public:
 	DebugDataSource(asio::io_context& io,

@@ -11,7 +11,7 @@
 
 SensorReader::SensorReader(asio::io_context& io,
 		const ParamsCLI& params)
-: RadSysZondGpr(params, io), DataSource(io, params)
+: RadSysZondGpr(params, io), DataProc(io, params)
 {
 }
 

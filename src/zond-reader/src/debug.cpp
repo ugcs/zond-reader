@@ -5,13 +5,13 @@
  *      Author: max
  */
 
-#include<debug.h>
-#include<util.h>
+#include <debug.h>
+#include <util.h>
 
 
 DebugDataSource::DebugDataSource(asio::io_context& io,
 								 const ParamsCLI& params)
-: DataSource(io, params), m_context(io), m_continue(false)
+: DataProc(io, params), m_context(io), m_continue(false)
 {
 	m_height = params.getSampleCount();
 }
