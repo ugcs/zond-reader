@@ -60,6 +60,9 @@ ParamsCLI(int argc, char **argv)
 			->expected(2)
 			->default_val(time_ranges);
 
+	app.add_option("-l, --overlap", img_overlap, "Sibling images overlap area in number of traces")
+			->default_val(0);
+
 	app.add_option("-g, --debug", debug_mode, "Fill files with debug pattern instead of data from the device")
 			->default_val(false);
 
@@ -155,5 +158,12 @@ ParamsCLI::
 isDebugMode() const
 {
 	return debug_mode;
+}
+
+unsigned
+ParamsCLI::
+getImagesOverlap() const
+{
+	return img_overlap;
 }
 

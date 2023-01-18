@@ -11,6 +11,7 @@ public:
 	std::string getOutputDir() const;
 	//Number of traces included per JPEG
 	unsigned getImageWidth() const;
+	unsigned getImagesOverlap() const;
 
 	std::string getHostName() const;
 	int getPort() const;
@@ -32,6 +33,7 @@ private:
 	const char* ENV_IMG_WIDTH = "ZOND_IMAGE_WIDTH";
 
 	unsigned img_width = DEFAULT_WIDTH;
+	unsigned img_overlap = 0;
 
 	std::string host_name;
 	int port;
