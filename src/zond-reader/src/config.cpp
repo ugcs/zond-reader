@@ -69,6 +69,8 @@ ParamsCLI(int argc, char **argv)
 
 	try {
 		app.parse( argc, argv);
+		if(getImageWidth() < getImagesOverlap())
+			throw std::invalid_argument("Images overlap cann't exceed images width");
 		//Update config file with new options:
 		std::string conf_source = app["--config"]->as<std::string>();
 		if(!conf_source.empty()) {
