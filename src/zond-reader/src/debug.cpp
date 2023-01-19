@@ -14,6 +14,7 @@ DebugDataSource::DebugDataSource(asio::io_context& io,
 : DataProc(io, params), m_context(io), m_continue(false)
 {
 	m_height = params.getSampleCount();
+	m_data.resize(m_height * sizeof(int16_t));
 }
 
 DebugDataSource::~DebugDataSource()
@@ -32,43 +33,36 @@ void DebugDataSource::stop()
 
 void DebugDataSource::generateData()
 {
-	static int16_t val = 0;
-	static int16_t dv = 10;
+	//Gradient increment value
+	const int16_t dv = 10;
 
-	static int samples_num = 0;
+	//Border of gradient and dark part of pattern. Looks like astronomical terminator.
 	static int border = 0;
+	//Border line angle coefficient. 1 corresponds to 45 degrees
 	static int dx = 1;
-
-	static byte_array_t data(1000);
 
 	if(m_continue)
 	{
 
-		auto traceData = reinterpret_cast<int16_t*>(data.data());
+		auto traceData = reinterpret_cast<int16_t*>(m_data.data());
 		//Generate debug pattern
-		for(int i = 0; i < data.size()/sizeof(int16_t); i++)
+		int16_t val = 0;
+		for(int i = 0; i < m_height; i++)
 		{
-			if(samples_num < border)
+			if(i < border)
 				*traceData = val;
 			else
 				*traceData = 0;
 			traceData++;
-
-			if(samples_num < m_height-1){
-				samples_num++;
-				val += dv;
-			}
-			else
-			{
-				val = 0;
-				samples_num = 0;
-				border += dx;
-				if((border > m_height)||(border < 0))
-					dx *= -1;
-			}
+			val += dv;
 		}
+		//Update border limit for the next trace:
+		border += dx;
+		if((border > m_height)||(border < 0))
+			dx *= -1;
+
 		//Submit generated data to writer:
-		m_writer.write(data);
+		m_writer.write(m_data);
 		//Schedule next generation:
 		asio::post(m_context, std::bind(&DebugDataSource::generateData, this));
 	}

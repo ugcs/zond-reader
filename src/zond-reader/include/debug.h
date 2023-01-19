@@ -16,4 +16,5 @@ private:
 	bool m_continue;
 	asio::io_context& m_context;
 	int m_height;
+	byte_array_t m_data;
 };
