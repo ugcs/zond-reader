@@ -183,7 +183,8 @@ RadSysZondGpr::onConnected(const asio::error_code& error)
 				std::bind(&RadSysZondGpr::onReadData, this, std::placeholders::_1, std::placeholders::_2));
 
 		//Send command to start data flow from the sensor:
-		m_socket->async_send(asio::buffer("W\n"),
+		byte_array_t cmd = {'W', '\n'};
+		m_socket->async_send(asio::const_buffer(cmd.data(), cmd.size()),
 				std::bind(&RadSysZondGpr::onCommandSend, this, std::placeholders::_1, std::placeholders::_2));
 	}
 }
@@ -237,8 +238,8 @@ void RadSysZondGpr::sendStart()
 {
 	//For some models, which works in "light mode" special command must be sent:
 	if (m_liteMode) {
-		std::cout << "Command: P1" << std::endl;
-		m_socket->async_send(asio::buffer("P1\n"),
+		byte_array_t cmd = {'P', '1', '\n'};
+		m_socket->async_send(asio::const_buffer(cmd.data(), cmd.size()),
 				std::bind(&RadSysZondGpr::onCommandSend, this, std::placeholders::_1, std::placeholders::_2));
 	}
 
