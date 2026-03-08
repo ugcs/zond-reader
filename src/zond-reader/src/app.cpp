@@ -6,8 +6,6 @@
 #include <writer.h>
 #include <worker.h>
 #include <radsyszondgpr.h>
-#include <debug.h>
-#include <dataproc.h>
 
 
 //Main entry point for application
@@ -20,18 +18,13 @@ int main(int argc, char **argv) {
 		asio::io_context context;
 
 		//Create thread pool of 2 threads: one to read data from sensor
-		// and the second to write it to JPEG files
+		// and the second to write it to SEGY files
 		std::vector<WorkerThread> workers;
 		for(int i = 0; i < 2; i++)
 			workers.emplace_back(context);
 
 		//Source of data: real device or mockup for debugging:
-		std::unique_ptr<DataProc> sensor;
-
-		if(params.isDebugMode()) //Make instance of mockup
-			sensor = std::make_unique<DebugDataSource>(context, params);
-		else //Make an instance of sensor reader.
-			sensor = std::make_unique<SensorReader>(context, params);
+		SensorReader sensor(context, params);;
 
 		//Run all working threads
 		for(auto & worker : workers)
@@ -40,7 +33,7 @@ int main(int argc, char **argv) {
 		//Submit task to start sensor reading
 		asio::post(context, [&] {
 			std::cout << "Start processing" << std::endl;
-			sensor->start();
+			sensor.start();
 		});
 
 		//Main thread waits for ENTER key to stop processing:
@@ -53,7 +46,7 @@ int main(int argc, char **argv) {
 		for(int i = 0; i < 2; i++) {
 			workers[i].stop();
 		}
-		sensor->stop();
+		sensor.stop();
 		//Farewell and good luck:
 		std::cout << "Work complete. Reader is out." << std::endl;
 

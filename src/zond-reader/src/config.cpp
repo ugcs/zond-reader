@@ -36,41 +36,28 @@ ParamsCLI(int argc, char **argv)
 	app.add_option("-p, --port", port, "TCP port of sensor")
 			->default_val(23);
 
-	app.add_option("-c, --sample-count", sample_count, "Sample count")
+	app.add_option("-c, --sample-per-trace", sample_count, "Samples per trace")
 			->default_val(512);
 
-	high_pass_filters = {"OFF", "OFF"};
-	app.add_option("-f, --high-pass-filters", high_pass_filters, "High-pass filters")
-			->expected(2)
-			->default_val(high_pass_filters);
+	pulse_delay = 174;
+	app.add_option("-d, --pulse-delay", pulse_delay, "Pulse delay")
+			->default_val(pulse_delay);
 
-	app.add_option("-s, --sounding-mode", sounding_mode, " Sounding mode")
-			->default_val("SOUNDING");
+	time_range = 7;
+	app.add_option("-t, --time-range-per-sample", time_range, "Time range per sample")
+			->default_val(time_range)
+			->expected(0,12);
 
-	app.add_option("-m, --channel-mode", channel_mode, " Channel mode")
-			->default_val("CHANNEL_1");
+	tx_freq = 300;
+	app.add_option("-f, --tx-freq", tx_freq, "Transmitter frequency")
+			->default_val(tx_freq);
 
-	pulse_delays = {0, 0};
-	app.add_option("-d, --pulse-delays", pulse_delays, "Pulse delays")
-			->expected(2)
-			->default_val(pulse_delays);
-
-	time_ranges = {300, 300};
-	app.add_option("-t, --time-ranges", time_ranges, "Time ranges")
-			->expected(2)
-			->default_val(time_ranges);
-
-	app.add_option("-l, --overlap", img_overlap, "Sibling images overlap area in number of traces")
-			->default_val(0);
-
-	app.add_option("-g, --debug", debug_mode, "Fill files with debug pattern instead of data from the device")
-			->default_val(false);
-
+	stacking = 512;
+	app.add_option("-s, --stacking", stacking, "Stacking")
+			->default_val(stacking);
 
 	try {
 		app.parse( argc, argv);
-		if(getImageWidth() < getImagesOverlap())
-			throw std::invalid_argument("Images overlap cann't exceed images width");
 		//Update config file with new options:
 		std::string conf_source = app["--config"]->as<std::string>();
 		if(!conf_source.empty()) {
@@ -120,52 +107,31 @@ getSampleCount() const
 	return sample_count;
 }
 
-std::vector<std::string>
+uint16_t
 ParamsCLI::
-getHighPassFilters() const
+getPulseDelay() const
 {
-	return high_pass_filters;
+	return pulse_delay;
 }
 
-std::string
+uint16_t
 ParamsCLI::
-getSoundingMode() const
+getTimeRange() const
 {
-	return sounding_mode;
+	return time_range;
 }
 
-std::string
+uint16_t
 ParamsCLI::
-getChannelMode() const
+getStacking() const
 {
-	return channel_mode;
+	return stacking;
 }
 
-std::vector<uint16_t>
+uint16_t
 ParamsCLI::
-getPulseDelays() const
+getTxFrequency() const
 {
-	return pulse_delays;
-}
-
-std::vector<uint16_t>
-ParamsCLI::
-getTimeRanges() const
-{
-	return time_ranges;
-}
-
-bool
-ParamsCLI::
-isDebugMode() const
-{
-	return debug_mode;
-}
-
-unsigned
-ParamsCLI::
-getImagesOverlap() const
-{
-	return img_overlap;
+	return tx_freq;
 }
 

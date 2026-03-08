@@ -1,5 +1,5 @@
 # zond-reader
-Utility to read Zond Aero 1000 data and write it to files
+Utility to read RadSys zGPR data and write it to files
 
 ## How to build
 
@@ -50,10 +50,10 @@ You may use different config files wih --config key to point file location:
 You may edit configuration file with any text editor. It's a simple TOML format.
 If you supply any configuration parameters, utility will update them in a configuration file also.
 
-The results will be written as a series of JPEG files to the output directory. Key "-o" may be used to specify files location.
+The results will be written as a series of SEG-Y files to the output directory. Key "-o" may be used to specify files location.
 By default it's the current directory, where zond reader utility was called from.
 
-The number of traces per JPEG file is controlled with -w (Width) key. It's 500 traces by default.
+The number of traces per SEG-Y file is controlled with -w (Width) key. It's 500 traces by default.
 
 The utulity will read traces from the sensor and write them into files. It stops the processing then user press the ENTER key.
  

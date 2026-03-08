@@ -5,47 +5,18 @@
 #include <iostream>
 #include <asio/ip/address.hpp>
 
+using namespace std::string_literals;
 
-/*Define primary constanst and default values for Zond configuration*/
-namespace C {
-
-//Default settings for device, as human-readable strings or integers
-const int DefaultSampleCount = 256;
-
-// Consts
-const int  SampleBitDepth = 16; //Default sample bit depth
-const char Marker[] = {0x00, 0x7f, 0x00, 0x7f}; //Magic sequence to initialize
-const int  MarkerLength  = sizeof(Marker); //Lenght of magic sequence
-const int ServiceSampleDivider = 16;
-
-
-// RadSys Lite model prefixes - to detect which model we are dealing with
-const char * const LiteModeModelMarker = "TR500_";
-const char * const LiteModelName100Ns = "TR500_0";
-const char * const LiteModelName200Ns = "TR500_2";
-const char * const LiteModelName300Ns = "TR500_3";
-const int LiteModeSampleCount = 512;
-
-
-// Radsys Aero500
-const char * const AeroModeModelMarker = "ZLITE_0";
-
-} // namespace C
-
-
-//Bytes per sample:
-int RadSysZondGpr::bytesInSample = C::SampleBitDepth / 8;
 
 //Driver class initialization
 RadSysZondGpr::RadSysZondGpr(
 		const std::string& sensorHostName,
 		int sensorPort,
 		uint16_t sampleCount,
-		const std::vector<std::string>& highPassFilters,
-		const std::string& soundingMode,
-		const std::string& channelMode,
-		const std::vector<uint16_t>& pulseDelays,
-		const std::vector<uint16_t>& timeRanges,
+		uint16_t pulseDelay,
+		uint16_t timeRange,
+		uint16_t txFrequency,
+		uint16_t stacking,
 		asio::io_context& context)
 : m_context(context),
   m_received_data(500)
@@ -53,31 +24,15 @@ RadSysZondGpr::RadSysZondGpr(
 {
 	/*
 	 *  View Skyhub user manual for detailed description on every parameter.
-	 *  There are two channels on device, each of them configured independantly.
-	 *  Every channel will be initiated by the batch command, formed by ChannelSetup class.
-	 *  Here we just fill paramter values from configuration into two ChannelSetup instances.
 	 */
 	m_hostName = sensorHostName;
 	m_port = sensorPort;
 
-	if(timeRanges.size() != 2)
-		throw std::invalid_argument("Incorrect number of time range settings");
-	if(highPassFilters.size() != 2)
-		throw std::invalid_argument("Incorrect number of highPassFilterse settings");
-	if(pulseDelays.size() != 2)
-		throw std::invalid_argument("Incorrect number of pulseDelays settings");
-
-	for(int idx=0; idx < 2; idx++) {
-		m_channels[idx].timeRange = timeRanges[idx];
-		m_channels[idx].highPassFilter = highPassFilters[idx];
-		m_channels[idx].pulseDelay = pulseDelays[idx];
-	}
-
-	for(auto& channel : m_channels) {
-		channel.sampleCount = sampleCount;
-		channel.soundingMode = soundingMode;
-		channel.channelMode = channelMode;
-	}
+	m_settings.timeRange = timeRange;
+	m_settings.pulseDelay = pulseDelay;
+	m_settings.samples = sampleCount;
+	m_settings.txFreq = txFrequency;
+	m_settings.stacking = stacking;
 }
 
 RadSysZondGpr::RadSysZondGpr(const ParamsCLI& config,
@@ -85,11 +40,10 @@ RadSysZondGpr::RadSysZondGpr(const ParamsCLI& config,
 				RadSysZondGpr(
 						config.getHostName(), config.getPort(),
 						config.getSampleCount(),
-						config.getHighPassFilters(),
-						config.getSoundingMode(),
-						config.getChannelMode(),
-						config.getPulseDelays(),
-						config.getTimeRanges(),
+						config.getPulseDelay(),
+						config.getTimeRange(),
+						config.getTxFrequency(),
+						config.getStacking(),
 						context)
 {
 }
@@ -98,41 +52,20 @@ RadSysZondGpr::~RadSysZondGpr()
 {
 }
 
-//Device initialization routine:
-void RadSysZondGpr::init(const std::string &model)
-{
-	//Special processing for some deivce models:
-	if (model.rfind(C::LiteModeModelMarker, 0) == 0) {
-		m_liteMode = true;
-		m_channels[0].sampleCount = C::LiteModeSampleCount;
-		m_channels[0].channelMode = ChannelSetup::Channel1Mode;
-		m_channels[0].timeRange = timeRange(model, m_channels[0].timeRange);
-	} else if (model.rfind(C::AeroModeModelMarker, 0) == 0) {
-		m_liteMode = true;
-		m_channels[0].sampleCount = C::LiteModeSampleCount;
-		m_channels[0].channelMode = ChannelSetup::Channel1Mode;
-	}
-
-	//Check if configured sample count is valid for channel 0.
-	//If not - switch to default value
-	if (!m_channels[0].isSampleCountValid())
-		m_channels[0].sampleCount = C::DefaultSampleCount;
-
-	//The same check for channel 1.
-	if (!m_channels[1].isSampleCountValid())
-		m_channels[1].sampleCount = C::DefaultSampleCount;
-
-	for(auto & channel : m_channels) {
-		//Turn on antenas on both channels:
-		channel.antennaTransmitter = ChannelSetup::TransmitterOn;
-		//Use combinned cables for both channels:
-		channel.cable = ChannelSetup::CombinedCable;
-	}
-}
-
 //Then driver initialized, send pings to detect if device answers
 void RadSysZondGpr::start()
 {
+	m_setupCommands = {
+			"$stop #1"s,
+			"$tune #2 set txfreq "s + std::to_string(m_settings.txFreq),
+			"$tune #3 set stacking "s + std::to_string(m_settings.stacking),
+			"$tune #4 set samples "s + std::to_string(m_settings.samples),
+			"$tune #5 set delay "s+ std::to_string(m_settings.pulseDelay),
+			"$tune #6 set time "s + std::to_string(m_settings.timeRange),
+			"$start #7 "s,
+	};
+	m_initStep = m_setupCommands.begin();
+
 	tryToConnect(m_hostName, m_port);
 }
 
@@ -166,6 +99,8 @@ RadSysZondGpr::onConnected(const asio::error_code& error)
 		std::cerr << "Connection failed: " << error.message() << std::endl;
 		//Clean the socket object:
 		m_socket = nullptr;
+		//Wait for 1 second before the next try:
+		sleep(1);
 		//Resubmit next connection try:
 		asio::post(m_context,
 				std::bind(&RadSysZondGpr::tryToConnect, this, m_hostName, m_port));
@@ -182,8 +117,8 @@ RadSysZondGpr::onConnected(const asio::error_code& error)
 		m_socket->async_receive(asio::buffer(m_received_data, m_received_data.size()),
 				std::bind(&RadSysZondGpr::onReadData, this, std::placeholders::_1, std::placeholders::_2));
 
-		//Send command to start data flow from the sensor:
-		byte_array_t cmd = {'W', '\n'};
+		//Send command to check sensor protocol:
+		byte_array_t cmd = {'$', 'w' ,'h', 'o', 'i', 's', '\r', '\n'};
 		m_socket->async_send(asio::const_buffer(cmd.data(), cmd.size()),
 				std::bind(&RadSysZondGpr::onCommandSend, this, std::placeholders::_1, std::placeholders::_2));
 	}
@@ -203,8 +138,10 @@ RadSysZondGpr::onSetupSend(const asio::error_code& error,
 {
 	if (error)
 		std::cerr << "Data sending error: " << error.message() << std::endl;
-	else
-		m_parsingState = PreparationState; //Resume parsing after configuration
+	else {
+		m_initStep++;
+		sendStart();
+	}
 }
 
 //Close TCP connection and stop processing
@@ -232,187 +169,175 @@ void RadSysZondGpr::onReadData(
 	}
 }
 
-//Configuration data must be send then 'magic sequence' - the marker will be detected
-// in incoming byte stream. The search for the marker implemented in parsing routine:
 void RadSysZondGpr::sendStart()
 {
-	//For some models, which works in "light mode" special command must be sent:
-	if (m_liteMode) {
-		byte_array_t cmd = {'P', '1', '\n'};
+	auto sendCommand = [this](const std::string& command) -> void {
+		//auto command_string = command.c_str();
+		byte_array_t cmd;
+		cmd.reserve(command.length() + 2);
+		cmd.insert(cmd.end(), command.begin(), command.end());
+		//and the end-of-line symbol:
+		cmd.push_back('\r');
+		cmd.push_back('\n');
+
+		std::cout << "Setup command:" << command << std::endl;
+
 		m_socket->async_send(asio::const_buffer(cmd.data(), cmd.size()),
 				std::bind(&RadSysZondGpr::onCommandSend, this, std::placeholders::_1, std::placeholders::_2));
+	};
+	if(m_initStep == m_setupCommands.end()) {
+		std::cout << "Setup complete" << std::endl;
+		m_parsingState = PreparationState;
 	}
-
-	//Convert configured parameters into device protocol sequence:
-	//For channel 0:
-	byte_array_t data = m_channels[0].toByteArray();
-	//And for channel 1, if dual model is required:
-	if (isDualChannel()) {
-		auto chan2 = m_channels[1].toByteArray();
-		data.insert(data.end(), chan2.begin(), chan2.end());
+	else {
+		sleep(1);
+		sendCommand(*m_initStep);
 	}
-	byte_array_t cmd;
-	//Configuration is sent with "T" command
-	cmd.push_back('T');
-	//followed by parameters in device format:
-	cmd.push_back(static_cast<char>(data.size()));
-	cmd.insert(cmd.end(), data.begin(), data.end());
-	//and the end-of-line symbol:
-	cmd.push_back('\n');
+}
 
-	std::string str_cmd(cmd.begin(), cmd.end());
-
-	std::cout << "Setup command:" << str_cmd << std::endl;
-
+void RadSysZondGpr::sendModelRequest()
+{
+	byte_array_t cmd = {'$', 'a' ,'n', 't', 'e', 'n', 'n', 'a', '\r', '\n'};
 	m_socket->async_send(asio::const_buffer(cmd.data(), cmd.size()),
-			std::bind(&RadSysZondGpr::onSetupSend, this, std::placeholders::_1, std::placeholders::_2));
+			std::bind(&RadSysZondGpr::onCommandSend, this, std::placeholders::_1, std::placeholders::_2));
 }
 
 //This is the FSM routine to parse incoming binary stream chunk-by-chunk:
 void RadSysZondGpr::parseTrace(const byte_array_t &data, std::size_t length)
 {
-	static bool parseFailureFlag = false;
 	static int traceByteCount = 0;
+	int rawIndex = 0;
+	static bool traceBegin = false;
 
-	// If data length equal to traceByteCount, it means that it is a full trace
-	if (parseFailureFlag && length != traceByteCount) {
-		std::cerr << "Expected data with length " << traceByteCount << ". Current data length " << length << std::endl;
-		m_badTraceCount++;
-		return;
-	}
-	parseFailureFlag = false;
-
-	static int markerRawIndex = 0;
-	static int markerDataIndex = 0;
-	static byte_array_t model;
+	static byte_array_t header;
 	static byte_array_t trace;
 
-	//FSM automatically transmits from Initial state to Model state:
+	//Expect protocol ID respose:
 	if (m_parsingState == InitialState)
-		m_parsingState = ModelState;
+	{
+		const std::string expected("$iam zGPR"); //This is the marker for the correct protocol
+		std::string_view whois(reinterpret_cast<const char*>(data.data()), expected.length());
+		if(whois == expected) {
+			std::cout << "zGPR protocol detected" << std::endl;
+			m_parsingState = ModelState;
+			sendModelRequest();
+		}
+		else {
+			std::cerr << "Incorrect protocol. Expected [" << expected << "]" << " but got [" << whois << "]" << std::endl;
+		}
+		return;
+	}
 
 	//Do not parse anything while configuration awaiting
-	if (m_parsingState == ConfigureState)
+	if (m_parsingState == ConfigureState) {
+		const std::string_view response(reinterpret_cast<const char*>(data.data()), length-2);
+		std::cout << "Command response: [" << response << "]" << std::endl;
+		m_initStep++;
+		sendStart();
 		return;
+	}
 
 	if (m_parsingState == ModelState) {
-		//In model state we search for Marker and then for model name:
-		for (int i = 0; i < length; ++i) {
-			data.at(i) == C::Marker[markerRawIndex] && markerRawIndex < C::MarkerLength
-					? ++markerRawIndex
-							: markerRawIndex = 0;
-			if (markerRawIndex >= C::MarkerLength && model.empty()) {
-				//TODO: rework for std::string
-				model.resize(length - markerRawIndex);
-				memcpy(model.data(), data.data() + markerRawIndex, model.size());
-				auto str_model = std::string(model.begin(), model.end());
-				std::cout << "Model:" << str_model << std::endl;
+		const std::string expected("$antenna "); //This is the expected prefix for model name
+		const std::string_view antenna(reinterpret_cast<const char*>(data.data()), expected.length());
+		if(antenna != expected) {
+			std::cerr << "Incorrect model format. Expected string started with [" << expected << "] but got [" << antenna << "]";
+		}
+		else {
+			size_t start = expected.length();
+			size_t end = start;
+			for(; end < data.size() && data[end] != '\n'; end++);
 
-				//Then model was found, launch device initialization routine:
-				init(str_model);
+			const std::string str_model(reinterpret_cast<const char*>(data.data())+start, end-start);
+			std::cout << "Model: " << str_model << std::endl;
 
-				//Switch FSM into Configure state to suspend parsing until setup was sent
-				m_parsingState = ConfigureState;
-				markerRawIndex = 0;
+			//Switch FSM into Configure state to suspend parsing until setup was sent
+			m_parsingState = ConfigureState;
 
-				//Then request data transmission start:
-				sendStart();
+			//Then request data transmission start:
+			sendStart();
+		}
+		return;
+	}
+
+	while(rawIndex < length) {
+		if(m_parsingState == PreparationState) {
+			//Search for header start marker:
+			for(rawIndex = 0; (rawIndex < length) && (data[rawIndex] != '$'); rawIndex++);
+
+			if(data[rawIndex] != '$') {//did not found in the current buffer
+				rawIndex = 0;
+				return;
+			}
+			else {
+				header.clear();
+				rawIndex++; //advance to the next symbol
+				m_parsingState = TraceHeaderState;
+			}
+		}
+		if(m_parsingState == TraceHeaderState) {
+			for(; (rawIndex < length) && (data[rawIndex] != '\r'); rawIndex++)
+				header.push_back(data[rawIndex]);
+			if(data[rawIndex] == '\r') {//trace header complete
+				static const char traceMarker[] = {'t', 'r', 'a', 'c', 'e', ' ', '+'};
+				int len;
+				for(len = 0; (len < sizeof(traceMarker)) && (traceMarker[len] == header[len]);len++);
+				if(len != sizeof(traceMarker)) {
+					std::cerr << "Incorrect trace header format" << std::endl;
+					rawIndex = 0;
+					m_parsingState = PreparationState;
+					return;
+				}
+
+				//Routine to parse numbers:
+				auto parseInt = [](const byte_array_t& buf, int& pos, char terminator) -> uint16_t {
+					uint16_t val = 0;
+					for(;pos < buf.size() && buf[pos] != terminator; pos++)
+						val = val*10 + buf[pos] - (uint16_t)'0';
+					return val;
+				};
+
+				//Parse the binary part size:
+				traceByteCount = parseInt(header, len, ' ');
+				len++;//skip the space
+				//Parse part num:
+				int partNum = parseInt(header, len, '_');;
+				len++;//skip separator
+				int totalParts = parseInt(header, len, ' ');;
+				len++;//skip the space
+				int samples = parseInt(header, len, '_');
+				len++;//skip separator
+				int stacking = parseInt(header, len, ' ');
+
+				rawIndex++; //advance to the next symbol
+				m_parsingState = TraceDataState;
+				traceBegin = false;
+			}
+			else { //need to wait for the next buffer
+				rawIndex = 0;
+				return;
+			}
+		}
+		if(m_parsingState == TraceDataState) {
+			if(!traceBegin) {
+				rawIndex++; //skip LF first
+				traceBegin = true;
+				trace.clear();
+			}
+			//Read out trace data:
+			for(;(rawIndex < length) && (trace.size() < traceByteCount); rawIndex++)
+				trace.push_back(data[rawIndex]);
+			if(trace.size() < traceByteCount) { //need more data before processing
+				rawIndex = 0;
+				return;
+			}
+			else { //trace read out complete
+				//write trace data
+				processGprData(trace);
+				m_parsingState = PreparationState;
 				return;
 			}
 		}
 	}
-
-	if (m_parsingState == PreparationState) {
-		//In preparation state we prepare data logging for trace data:
-		traceByteCount = bytesInSample * (m_liteMode ? m_channels[0].sampleCount + m_channels[0].sampleCount / C::ServiceSampleDivider
-				: m_channels[0].sampleCount);
-		trace.clear();
-		trace.resize(traceByteCount);
-		if (m_liteMode) {
-			m_parsingState = TraceState;
-		} else {
-			for (int i = 0; i < data.size(); ++i) {
-				data.at(i) == C::Marker[markerRawIndex] && markerRawIndex < C::MarkerLength
-						? ++markerRawIndex
-								: markerRawIndex = 0;
-				if (markerRawIndex >= C::MarkerLength) {
-					// check dummy byte
-					markerRawIndex++;
-					m_parsingState = TraceState;
-					break;
-				}
-			}
-		}
-	}
-
-	//In Trace state we receive trace values and then post them to log:
-	if (m_parsingState == TraceState) {
-		// handle tail of last package
-		if (markerDataIndex != 0) {
-			if (length >= traceByteCount - markerDataIndex) {
-				memcpy(trace.data() + markerDataIndex,
-						data.data() + markerRawIndex,
-						traceByteCount - markerDataIndex);
-
-				processGprData(trace);
-				markerRawIndex += traceByteCount - markerDataIndex;
-				markerDataIndex = 0;
-			} else {
-				// trace is not full
-				memcpy(trace.data() + markerDataIndex,
-						data.data() + markerRawIndex,
-						length - markerRawIndex);
-				markerDataIndex += length - markerRawIndex;
-				markerRawIndex = length;
-			}
-		}
-		// handle complete traces
-		int traceCount = (length - markerRawIndex) / traceByteCount;
-		for (int k = 0; k < traceCount; ++k) {
-			memcpy(trace.data(),
-					data.data() + markerRawIndex,
-					traceByteCount);
-			//logGprData(trace);
-			processGprData(trace);
-			markerRawIndex += traceByteCount;
-		}
-		// handle head of next package
-		if (markerRawIndex < length) {
-			memcpy(trace.data(),
-					data.data() + markerRawIndex,
-					length - markerRawIndex);
-			markerDataIndex = length - markerRawIndex;
-		} else if (markerRawIndex > length) {
-			std::cerr << "Wrong case: Data length: " << length
-							<< ", markerDataIndex: " << markerDataIndex
-							<< ", markerRawIndex: " << markerRawIndex
-							<< std::endl;
-
-			parseFailureFlag = true;
-			markerDataIndex = 0;
-		} else {
-			// do nothing
-		}
-		markerRawIndex = 0;
-	}
-}
-
-//Determinate if we configured for single or double channel mode:
-bool RadSysZondGpr::isDualChannel()
-{
-	return (m_channels[0].channelMode == ChannelSetup::TwoChannelsMode && m_channels[1].channelMode == ChannelSetup::TwoChannelsMode) ||
-			(m_channels[0].channelMode == ChannelSetup::CircleMode && m_channels[1].channelMode == ChannelSetup::CircleMode);
-}
-
-//Convert time range from configuration paramter to protocol specific values
-uint16_t RadSysZondGpr::timeRange(const std::string& model, uint16_t defaultValue)
-{
-	if (model == C::LiteModelName100Ns)
-		return 100;
-	if (model == C::LiteModelName200Ns)
-		return 200;
-	if (model == C::LiteModelName300Ns)
-		return 300;
-	return defaultValue;
 }
 

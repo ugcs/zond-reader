@@ -8,16 +8,17 @@
 #include <writer.h>
 #include <iostream>
 
-using namespace cv;
 
 GprWriter::GprWriter(asio::io_context& io, const ParamsCLI& params) : m_context(io)
 {
 	m_file_num = 0;
+	m_current_width = 0;
 
-	m_height = params.getSampleCount();
 	m_target_width = params.getImageWidth();
 	m_output_dir = params.getOutputDir();
-	m_overlap = params.getImagesOverlap();
+	m_param.samplesPerTrace = params.getSampleCount();
+
+	startSegyWrite(); //start new file
 }
 
 //Add trace data into files (single or multiple depends on overlapping).
@@ -31,60 +32,35 @@ void GprWriter::write(const byte_array_t& data)
 	auto traceData = reinterpret_cast<const int16_t*>(data.data());
 
 	//First, check if any images are filled and ready for storage:
-	for(auto p = m_results.begin(); p != m_results.end(); p++) {
-		auto & current_width = p->first;
-		auto & result = p->second;
-		if(current_width == m_target_width) {
-			startJpegWrite(result);
-			p = m_results.erase(p); //Remove written image from collection
-			m_file_num++; //next output file number
-		}
+	if((m_current_width == m_target_width)||(!m_result)) {
+		m_file_num++; //next output file number
+		m_current_width = 0; //reset trace counter
+		startSegyWrite(); //start new file
 	}
 
-	//If no working images are left, add a new one:
-	if(m_results.empty())
-		m_results.push_back(std::make_pair(0, Mat(m_height, m_target_width, CV_32FC1)));
+	std::cout << "Trace " << trace_num++ << " goes to file " << m_file_num << '\r';
 
-	//Now check if the last image is in range of overlaping with next sibling:
-	auto last_width = m_results.back().first;
-	if(m_target_width - last_width < m_overlap) //add next image if in overlap range:
-		m_results.push_back(std::make_pair(0, Mat(m_height, m_target_width, CV_32FC1)));
+	segy::SegyFile::Trace trace;
+	//Reference to trace data:
+	trace.data = data.data();
+	trace.dataSize = data.size();
 
-	//Copy from original buffer in sync mode
-	//just to be sure it will not be overwrited:
-	for(int sample_idx=0; sample_idx < m_height; sample_idx++) { //start from previous sample index
-		int16_t sample = *traceData;
-		traceData++; //move to next value
-		for(auto & p : m_results) //add sample into all images are in work:
-			p.second.at<float>(sample_idx, p.first) = sample;
-	}
+	/*Setup GNSS coordinates and altitude here:
+	trace.longitude = ;
+	trace.latitude = ;
+	trace.altitude = ;
+	*/
 
-	std::cout << "Trace " << trace_num++ << " goes to file " << m_file_num << std::endl;
-	//Update width counters of all working images:
-	for(auto & p : m_results)
-		p.first++;
+	m_result.value().writeTrace(trace);
+	m_current_width++;
 }
 
-void GprWriter::startJpegWrite(const cv::Mat& result)
+void GprWriter::startSegyWrite()
 {
-	asio::post(m_context, [data = result,
-						   file_idx = m_file_num,
-						   output_dir = m_output_dir]{
-		Mat out;
-		convertTo8Bit(data, out);
-
-		auto filename = output_dir + "/" + std::to_string(file_idx) + ".jpg";
-		//Save into target file:
-		imwrite(filename, out);
-	});
+	if(m_result)
+		m_result.value().close();
+	auto filename = m_output_dir + "/" + std::to_string(m_file_num) + ".sgy";
+	m_result.emplace(filename);
+	m_result.value().open(m_param);
 }
 
-void GprWriter::convertTo8Bit(const Mat& src, Mat& out)
-{
-	out = Mat(src.size(), CV_8UC1);
-	double minv, maxv;
-	minMaxLoc(src, &minv, &maxv);
-	double scale = (maxv - minv);
-
-	src.convertTo(out, CV_8U, 255.0/scale, -minv * 255.0/scale);
-}

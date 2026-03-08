@@ -11,7 +11,7 @@
 #include <asio.hpp>
 #include <util.h>
 #include <config.h>
-#include <opencv2/opencv.hpp>
+#include <segy.h>
 #include <list>
 
 
@@ -23,14 +23,13 @@ public:
 private:
 	asio::io_context& m_context;
 	int m_target_width;
+	int m_current_width;
 	unsigned m_overlap;
 
-	int m_height;
 	std::string m_output_dir;
 	int m_file_num;
-	//List of overlapping images in work:
-	std::list<std::pair<int, cv::Mat>> m_results;
+	std::optional<segy::SegyFile> m_result;
+	segy::SegyFile::Params m_param;
 
-	void startJpegWrite(const cv::Mat& result);
-	static void convertTo8Bit(const cv::Mat& src, cv::Mat& out);
+	void startSegyWrite();
 };

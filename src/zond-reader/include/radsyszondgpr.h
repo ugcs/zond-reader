@@ -1,11 +1,10 @@
 #pragma once
 
-#include <channelsetup.h>
 #include <util.h>
 #include <config.h>
 #include <vector>
 #include <asio.hpp>
-
+#include <list>
 
 
 class RadSysZondGpr
@@ -14,11 +13,10 @@ public:
 	RadSysZondGpr(const std::string& sensorHostName,
 			int sensorPort,
 			uint16_t sampleCount,
-			const std::vector<std::string>& highPassFilters,
-			const std::string& soundingMode,
-			const std::string& channelMode,
-			const std::vector<uint16_t>& pulseDelays,
-			const std::vector<uint16_t>& timeRanges,
+			uint16_t pulseDelay,
+			uint16_t timeRange,
+			uint16_t txFrequency,
+			uint16_t stacking,
 			asio::io_context& context);
 
 	RadSysZondGpr(const ParamsCLI& config,
@@ -42,14 +40,10 @@ private:
 	void onSetupSend(const asio::error_code& error,
 			std::size_t bytes_transferred);
 
-	bool isDualChannel();
 	void parseTrace(const byte_array_t &data, std::size_t length);
 	void openConnection();
 	void sendModelRequest();
 	void sendStart();
-
-	void init(const std::string &model);
-	uint16_t timeRange(const std::string &model, uint16_t defaultValue = 0);
 
 	void tryToConnect(const std::string& address, int port);
 
@@ -61,7 +55,13 @@ private:
 	int m_port;
 	byte_array_t m_received_data;
 
-	ChannelSetup m_channels[2];
+	struct {
+		int timeRange;
+		int txFreq;
+		int stacking;
+		int pulseDelay;
+		int samples;
+	} m_settings;
 
 
 	enum ParsingState {
@@ -69,13 +69,15 @@ private:
 		ModelState,
 		ConfigureState,
 		PreparationState,
-		TraceState,
+		TraceHeaderState,
+		TraceDataState,
 	};
 
 	ParsingState m_parsingState = InitialState;
 
 	static int bytesInSample;
-	bool m_liteMode = false;
-	uint m_badTraceCount = 0;
+	std::list<std::string> m_setupCommands;
+	std::list<std::string>::iterator m_initStep;
+
 };
 
