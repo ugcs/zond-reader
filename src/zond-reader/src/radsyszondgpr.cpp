@@ -55,13 +55,23 @@ RadSysZondGpr::~RadSysZondGpr()
 //Then driver initialized, send pings to detect if device answers
 void RadSysZondGpr::start()
 {
+	auto getPulseDelayRange = [](int sampleTimeSecector) -> int {
+		const int PULSE_DELAY_MAX_RANGE = 56000;
+		if (sampleTimeSecector == 0) {
+			return PULSE_DELAY_MAX_RANGE;
+		} else {
+			return 100 * static_cast<int>(
+					static_cast<float>(PULSE_DELAY_MAX_RANGE) / (sampleTimeSecector + 1) / 100 + 0.5);
+		}
+	};
+
 	m_setupCommands = {
 			"$stop #1"s,
-			"$tune #2 set txfreq "s + std::to_string(m_settings.txFreq),
-			"$tune #3 set stacking "s + std::to_string(m_settings.stacking),
-			"$tune #4 set samples "s + std::to_string(m_settings.samples),
-			"$tune #5 set delay "s+ std::to_string(m_settings.pulseDelay),
-			"$tune #6 set time "s + std::to_string(m_settings.timeRange),
+			"$tune #2 set time "s + std::to_string(m_settings.timeRange),
+			"$tune #3 set txfreq "s + std::to_string(m_settings.txFreq),
+			"$tune #4 set stacking "s + std::to_string(m_settings.stacking),
+			"$tune #5 set delay "s+ std::to_string(m_settings.pulseDelay) + " "s + std::to_string(getPulseDelayRange(m_settings.timeRange)),
+			"$tune #6 set samples "s + std::to_string(m_settings.samples),
 			"$start #7 "s,
 	};
 	m_initStep = m_setupCommands.begin();
